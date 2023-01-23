@@ -1,26 +1,75 @@
 import com.github.javafaker.Faker;
-import lombok.experimental.UtilityClass;
+import io.restassured.builder.RequestSpecBuilder;
+import io.restassured.filter.log.LogDetail;
+import io.restassured.http.ContentType;
+import io.restassured.specification.RequestSpecification;
+import lombok.Value;
 
 import java.util.Locale;
 
-@UtilityClass
+import static io.restassured.RestAssured.given;
+
 public class DataGeneration {
-    public static RegistrationDto generateInfo(String locale) {
-        Faker faker = new Faker(new Locale(locale));
-        String status = "active";
 
-        return new RegistrationDto(
-                faker.name().firstName(),
-                faker.name().lastName(),
-                status
-        );
+    private static final RequestSpecification requestSpec = new RequestSpecBuilder()
+            .setBaseUri("http://localhost")
+            .setPort(9999)
+            .setAccept(ContentType.JSON)
+            .setContentType(ContentType.JSON)
+            .log(LogDetail.ALL)
+            .build();
+    private static final Faker faker = new Faker(new Locale("en"));
+
+    DataGeneration() {
     }
 
-    public String login() {
-        return generateInfo("eng").getLogin();
+    private static void sendRequest(RegistrationDto user) {
+        given()
+                .spec(requestSpec)
+                .body(user)
+                .when()
+                .post("/api/system/users/")
+                .then()
+                .statusCode(200);
     }
 
-    public String password() {
-        return generateInfo("eng").getPassword();
+    public static String generatedLogin() {
+        return faker.name().firstName();
+    }
+
+    public static String generatedPassword() {
+        return faker.name().lastName();
+    }
+
+    public static class Registration {
+        private Registration() {
+        }
+
+        public static RegistrationDto getUser(String status) {
+
+            return new RegistrationDto(
+                    generatedLogin(),
+                    generatedPassword(),
+                    status
+            );
+        }
+
+        public static RegistrationDto getRegisteredUser(String status) {
+            RegistrationDto registeredUser = getUser(status);
+            sendRequest(registeredUser);
+            return registeredUser;
+        }
+
+        public static RegistrationDto getNotRegisteredUser(String status) {
+            return getUser(status);
+        }
+    }
+
+    @Value
+    public static class RegistrationDto {
+
+        String login;
+        String password;
+        String status;
     }
 }

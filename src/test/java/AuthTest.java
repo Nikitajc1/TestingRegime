@@ -1,119 +1,78 @@
-import io.restassured.builder.RequestSpecBuilder;
-import io.restassured.filter.log.LogDetail;
-import io.restassured.http.ContentType;
-import io.restassured.specification.RequestSpecification;
-import org.junit.jupiter.api.BeforeAll;
+import com.codeborne.selenide.Condition;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import static io.restassured.RestAssured.given;
+import static com.codeborne.selenide.Selenide.*;
 
 public class AuthTest {
-    static String login = DataGeneration.login();
-    static String pass = DataGeneration.password();
-
-    private static final RequestSpecification requestSpec = new RequestSpecBuilder()
-            .setBaseUri("http://localhost")
-            .setPort(9999)
-            .setAccept(ContentType.JSON)
-            .setContentType(ContentType.JSON)
-            .log(LogDetail.ALL)
-            .build();
-
-    @BeforeAll
-    static void setUpAll() {
-
-        given()
-                .spec(requestSpec)
-                .body(new RegistrationDto("Vasya", "password", "active"))
-                .when()
-                .post("/api/system/users")
-                .then()
-                .statusCode(200);
+    @BeforeEach
+    void openChrome() {
+        open("http://localhost:9999/");
     }
 
     @Test
-    void testWhenLoginIsEmpty() {
+    void shouldSuccessfulLoginIfRegisteredActiveUser() {
+        var registeredUser = DataGeneration.Registration.getRegisteredUser("active");
+        $("[data-test-id=login] input").setValue(registeredUser.getLogin());
+        $("[data-test-id=password] input").setValue(registeredUser.getPassword());
+        $("[data-test-id=action-login]").click();
+        $x("//*[@id='root']/div/h2").shouldBe(Condition.appear).getText().equals("Личный кабинет");
+    }
 
-        given()
-                .spec(requestSpec)
-                .body(new RegistrationDto(null, "password", "active"))
-                .when()
-                .post("/api/system/users/")
-                .then()
-                .statusCode(500);
+    @Test
+    void shouldGetErrorIfNotRegisteredUser() {
+        var notRegisteredUser = DataGeneration.Registration.getNotRegisteredUser("active");
+        $("[data-test-id=login] input").setValue(notRegisteredUser.getLogin());
+        $("[data-test-id=password] input").setValue(notRegisteredUser.getPassword());
+        $("[data-test-id=action-login]").click();
+        $("[data-test-id=error-notification] .notification__content").shouldBe(Condition.exactText("Ошибка! Неверно указан логин или пароль")).shouldBe(Condition.visible);
+    }
+
+    @Test
+    void shouldGetErrorIfBlockedUser() {
+        var blockedUser = DataGeneration.Registration.getRegisteredUser("blocked");
+        $("[data-test-id=login] input").setValue(blockedUser.getLogin());
+        $("[data-test-id=password] input").setValue(blockedUser.getPassword());
+        $("[data-test-id=action-login]").click();
+        $("[data-test-id=error-notification] .notification__content").shouldBe(Condition.exactText("Ошибка! Пользователь заблокирован")).shouldBe(Condition.appear);
+    }
+
+    @Test
+    void shouldGetErrorIfWrongLogin() {
+        var registeredUser = DataGeneration.Registration.getRegisteredUser("active");
+        var wrongLogin = DataGeneration.generatedLogin();
+        $("[data-test-id=login] input").setValue(wrongLogin);
+        $("[data-test-id=password] input").setValue(registeredUser.getPassword());
+        $("[data-test-id=action-login]").click();
+        $("[data-test-id=error-notification] .notification__content").shouldBe(Condition.exactText("Ошибка! Неверно указан логин или пароль")).shouldBe(Condition.visible);
+    }
+
+    @Test
+    void shouldGetErrorIfWrongPassword() {
+        var registeredUser = DataGeneration.Registration.getRegisteredUser("active");
+        var wrongPassword = DataGeneration.generatedLogin();
+        $("[data-test-id=login] input").setValue(registeredUser.getLogin());
+        $("[data-test-id=password] input").setValue(wrongPassword);
+        $("[data-test-id=action-login]").click();
+        $("[data-test-id=error-notification] .notification__content").shouldBe(Condition.exactText("Ошибка! Неверно указан логин или пароль")).shouldBe(Condition.visible);
     }
 
 
     @Test
     void testWhenPasswordIsEmpty() {
-
-        given()
-                .spec(requestSpec)
-                .body(new RegistrationDto("vasya", null, "active"))
-                .when()
-                .post("/api/system/users/")
-                .then()
-                .statusCode(500);
-    }
-
-
-    @Test
-    void testWhenStatusIsBlocked() {
-
-        given()
-                .spec(requestSpec)
-                .body(new RegistrationDto("Katya", "password", "blocked"))
-                .when()
-                .post("/api/system/users/")
-                .then()
-                .statusCode(200);
+        var registeredUser = DataGeneration.Registration.getRegisteredUser("active");
+        $("[data-test-id=login] input").setValue(registeredUser.getLogin());
+        $("[data-test-id=password] input").setValue("");
+        $("[data-test-id=action-login]").click();
+        $("[data-test-id=password].input_invalid .input__sub").shouldHave(Condition.exactText("Поле обязательно для заполнения")).shouldBe(Condition.appear);
     }
 
     @Test
-    void testWhenStatusIsBlocked_Login() {
-
-        given()
-                .spec(requestSpec)
-                .body(new Put("Katya", "password"))
-                .when()
-                .post("http://localhost:9999/api/auth")
-                .then()
-                .statusCode(400);
-    }
-
-    @Test
-    void testVasyaLogin() {
-
-        given()
-                .spec(requestSpec)
-                .body(new Put("Vasya", "password"))
-                .when()
-                .post("http://localhost:9999/api/auth")
-                .then()
-                .statusCode(200);
-    }
-
-    @Test
-    void testVasyaLoginWithWrongPassword() {
-
-        given()
-                .spec(requestSpec)
-                .body(new Put("Vasya", "12345"))
-                .when()
-                .post("http://localhost:9999/api/auth")
-                .then()
-                .statusCode(400);
-    }
-
-    @Test
-    void testUnregisteredUser() {
-
-        given()
-                .spec(requestSpec)
-                .body(new Put("AhalaiMahalaiPostGet", "password"))
-                .when()
-                .post("http://localhost:9999/api/auth")
-                .then()
-                .statusCode(400);
+    void testWhenLoginIsEmpty() {
+        var registeredUser = DataGeneration.Registration.getRegisteredUser("active");
+        $("[data-test-id=login] input").setValue("");
+        $("[data-test-id=password] input").setValue(registeredUser.getPassword());
+        $("[data-test-id=action-login]").click();
+        $("[data-test-id=login].input_invalid .input__sub").shouldHave(Condition.exactText("Поле обязательно для заполнения")).shouldBe(Condition.appear);
     }
 }
