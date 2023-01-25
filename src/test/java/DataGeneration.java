@@ -59,10 +59,6 @@ public class DataGeneration {
             sendRequest(registeredUser);
             return registeredUser;
         }
-
-        public static RegistrationDto getNotRegisteredUser(String status) {
-            return getUser(status);
-        }
     }
 
     @Value

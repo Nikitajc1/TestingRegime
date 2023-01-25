@@ -21,7 +21,7 @@ public class AuthTest {
 
     @Test
     void shouldGetErrorIfNotRegisteredUser() {
-        var notRegisteredUser = DataGeneration.Registration.getNotRegisteredUser("active");
+        var notRegisteredUser = DataGeneration.Registration.getUser("active");
         $("[data-test-id=login] input").setValue(notRegisteredUser.getLogin());
         $("[data-test-id=password] input").setValue(notRegisteredUser.getPassword());
         $("[data-test-id=action-login]").click();
